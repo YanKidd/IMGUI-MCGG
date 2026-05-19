@@ -1,0 +1,20 @@
+# Build outputs
+obj/
+libs/
+*.so
+!jni/DOBBY/lib/**/*.a
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor swap
+*~
+*.swp
+*.bak
