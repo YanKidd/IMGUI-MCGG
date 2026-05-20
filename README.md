@@ -56,6 +56,11 @@ jni/
 
 This is scaffolding code. The vendored libraries (Dear ImGui, Dobby, XDL) retain their original licenses.
 
+## Contributors
+
+- Byan-Azriel
+- OpenAI Codex
+
 ## Notes
 
 - Target process check: only attaches when `/proc/self/cmdline` contains `:UnityKillsMe` (Magic Chess: Go Go's child process). Change the substring in `IsTargetProcess()` for other games.
