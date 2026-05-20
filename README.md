@@ -1,68 +1,142 @@
 # IMGUI-MCGG
 
-Dear ImGui overlay scaffolding for injection into Unity IL2CPP Android games (specifically Magic Chess: Go Go).
+<p align="center">
+  <img alt="Android NDK" src="https://img.shields.io/badge/Android_NDK-r27d-3DDC84?style=for-the-badge&logo=android&logoColor=white">
+  <img alt="C++20" src="https://img.shields.io/badge/C++-20-00599C?style=for-the-badge&logo=cplusplus&logoColor=white">
+  <img alt="ABI" src="https://img.shields.io/badge/ABI-arm64--v8a-111827?style=for-the-badge">
+  <img alt="Renderer" src="https://img.shields.io/badge/Renderer-OpenGL_ES_3-5586A4?style=for-the-badge">
+</p>
 
-This is a **template** — no cheat/feature code, just the rendering + hook scaffolding. Login dialog placeholder + sidebar-tab shell. Drop your own features in.
+<p align="center">
+  <strong>Dear ImGui overlay scaffold for Unity IL2CPP Android games.</strong>
+  <br>
+  Built around Magic Chess: Go Go, Dobby hooks, XDL symbol lookup, and an Android NDK C++20 pipeline.
+</p>
 
-## What it does
+```
+    IMGUI-MCGG
+    +-- EGL frame hook
+    +-- Dear ImGui Android overlay
+    +-- IL2CPP method resolver
+    +-- Login dialog scaffold
+    +-- Info / Room / Config menu shell
+```
 
-- Hooks `eglSwapBuffers` via Dobby — runs every frame after the game finishes rendering
-- Initializes Dear ImGui (Android + OpenGL ES 3 backends) on first frame
-- Renders either:
-  - **Login dialog** until you provide a valid key (template accepts any non-empty input — replace with your backend)
-  - **Mod menu** with sidebar tabs (Autoplay / Brutal Ops / Arena / Info / Room / Config) — empty bodies for you to fill in
-- Resets Unity's leftover GL state so ImGui draws correctly on top
+## Overview
 
-## Build
+`IMGUI-MCGG` is a native Android shared library template for rendering a Dear ImGui interface on top of a Unity IL2CPP game. It is intentionally structured as scaffolding: rendering, hook lifecycle, process guard, and UI shell are already wired, while project-specific feature logic can be added in controlled sections.
 
-Requires Android NDK (tested with r27d).
+The current build focuses on:
+
+| Area | Details |
+| --- | --- |
+| Render hook | Hooks `eglSwapBuffers` and renders after the game frame |
+| UI runtime | Initializes Dear ImGui with Android + OpenGL ES 3 backends |
+| Process guard | Attaches only when `/proc/self/cmdline` contains `:UnityKillsMe` |
+| Room info | Reads cached `SystemData.LogicGetRoomData()` data for the Room tab |
+| Build target | Android `arm64-v8a`, API 21, Clang, C++20, `c++_static` |
+
+## Interface
+
+The overlay is split into a compact login flow and a sidebar-based menu.
+
+| Tab | Purpose |
+| --- | --- |
+| `Info` | Shows runtime state, framebuffer size, target info, and initialization status |
+| `Room` | Shows read-only room roster data when the game cache is available |
+| `Config` | Reserved for menu configuration and future controls |
+
+The login dialog currently accepts any non-empty key. Replace that placeholder with your own validation backend if you need real license handling.
+
+## Quick Build
+
+Install Android NDK first. The template was prepared for NDK r27d.
 
 ```bash
 ndk-build -C jni -j8
 ```
 
-Output: `libs/arm64-v8a/libmain.so` (~4 MB).
+Expected output:
 
-## Deploy
-
-The .so is a proxy library — it replaces `libmain.so` in the game's APK and Unity calls it instead of the original. You'll need to:
-
-1. Force-stop the game
-2. Replace `lib/arm64-v8a/libmain.so` inside the APK (or `/data/app/<pkg>-*/lib/arm64/libmain.so` on a rooted device) with the built `.so`
-3. Re-launch the game
-
-See `scripts/repack_apk.py` (in the parent project) for an example APK repacker.
-
-## Project layout
-
+```text
+libs/arm64-v8a/libmain.so
 ```
+
+## Deploy Flow
+
+The generated `.so` is a proxy-style native library. In a local test workflow, it replaces the target APK's `libmain.so`.
+
+1. Force-stop the game.
+2. Build `libs/arm64-v8a/libmain.so`.
+3. Replace `lib/arm64-v8a/libmain.so` inside the APK, or the installed library path on a rooted test device.
+4. Re-launch the game.
+5. Watch runtime logs with:
+
+```bash
+adb logcat -s IMGUI-MCGG
+```
+
+## Project Layout
+
+```text
 jni/
-├── Main.cpp           # entry point, hooks, ImGui setup, render loop
-├── Android.mk         # build config
-├── Application.mk     # ABI + platform
-├── DOBBY/             # hook framework (vendored, arm64-v8a only)
-├── XDL/               # symbol resolver (source)
-├── IMGUI/             # Dear ImGui v1.x with android+opengl3 backends
-└── UNITY/             # Unity IL2CPP wrapper headers
++-- Main.cpp           # Entry point, hook setup, ImGui lifecycle, menu rendering
++-- Android.mk         # Native build config
++-- Application.mk     # ABI, platform, STL, and toolchain settings
++-- DOBBY/             # Vendored hook framework
++-- XDL/               # Vendored symbol resolver
++-- IMGUI/             # Dear ImGui sources and Android/OpenGL backends
++-- UNITY/             # Unity IL2CPP wrapper headers
 ```
 
-## Stubbed parts (you fill these in)
+## Native Pipeline
 
-- **Key validation** (`Main.cpp` → `RenderLoginDialog`) — currently accepts any non-empty input. Wire up your HTTP/license backend here.
-- **Tab content** (`Main.cpp` → `RenderModMenu`) — six empty tabs. Add your `ImGui::Checkbox` / `ImGui::Button` / feature logic.
-- **Game hooks** — only `eglSwapBuffers` is hooked. To intercept game methods, add IL2CPP method resolution (helper macros in the parent project use `xdl_sym` + `il2cpp_class_get_method_from_name`) and call `DobbyHook(addr, handler, &original)`.
+```text
+JNI_OnLoad / constructor
+        |
+        v
+Target process guard
+        |
+        v
+Setup thread
+        |
+        +--> Resolve libEGL + hook eglSwapBuffers
+        |
+        +--> Resolve IL2CPP APIs through XDL
+        |
+        v
+First rendered frame
+        |
+        v
+Initialize Dear ImGui + draw overlay
+```
 
-## License
+## Extension Points
 
-This is scaffolding code. The vendored libraries (Dear ImGui, Dobby, XDL) retain their original licenses.
+| File | Function / Area | Use |
+| --- | --- | --- |
+| `jni/Main.cpp` | `RenderLoginDialog()` | Replace placeholder key validation |
+| `jni/Main.cpp` | `RenderModMenu()` | Add new tabs or route tab content |
+| `jni/Main.cpp` | `RenderRoomTab()` | Adjust read-only room display fields |
+| `jni/Main.cpp` | `SetupThread()` | Add new hook setup after library resolution |
+| `jni/Main.cpp` | `IsTargetProcess()` | Retarget the process guard for another app |
+
+Keep hook originals grouped in `namespace Originals` and detours in `namespace Hooks` when adding native hooks.
+
+## Build Notes
+
+- Output artifacts belong in `libs/` and `obj/`; do not commit generated `.so` files.
+- The project exports only the native loader entry points needed by Android.
+- Vendored dependencies should stay untouched unless you are deliberately upgrading or patching them.
+- If you adapt this for another target, document process-name and symbol changes.
 
 ## Contributors
 
-- Byan-Azriel
-- OpenAI Codex
+| Contributor | Role |
+| --- | --- |
+| [Byan-Azriel](https://github.com/Byan-Azriel) | Project author |
+| [Codex](https://github.com/codex) | README and implementation assistance |
 
-## Notes
+## License
 
-- Target process check: only attaches when `/proc/self/cmdline` contains `:UnityKillsMe` (Magic Chess: Go Go's child process). Change the substring in `IsTargetProcess()` for other games.
-- The library exports only `JNI_OnLoad` and the constructor; everything else is hidden via `-fvisibility=hidden`.
-- Default debug log tag: `IMGUI-MCGG`. Filter with `adb logcat -s IMGUI-MCGG`.
+This repository contains scaffolding code. Vendored libraries such as Dear ImGui, Dobby, and XDL retain their original licenses.
