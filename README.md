@@ -134,7 +134,8 @@ Keep hook originals grouped in `namespace Originals` and detours in `namespace H
 
 | Contributor | Role |
 | --- | --- |
-| [Byan-Azriel](https://github.com/Byan-Azriel) | Project author |
+| [YanKidd](https://github.com/YanKidd) | Project author |
+| [Claude](https://github.com/claude) | Implementation assistance |
 | [Codex](https://github.com/codex) | README and implementation assistance |
 
 ## License
