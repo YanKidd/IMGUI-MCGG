@@ -78,8 +78,7 @@ static char g_keyInput[64] = {0};
 
 // Sidebar tab state.
 static int g_currentTab = 0;
-static const char *const kTabNames[] = {"Autoplay", "Brutal Ops", "Arena",
-                                        "Info",    "Room",       "Config"};
+static const char *const kTabNames[] = {"Brutal Ops", "Config"};
 static constexpr int kTabCount = sizeof(kTabNames) / sizeof(kTabNames[0]);
 
 // ── Hook originals ───────────────────────────────────────────────────────
